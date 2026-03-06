@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>تحدي العباقرة - Quiz Master</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="screen active">
+        <span class="loader"></span>
+        <p>جاري تحميل الأسئلة...</p>
+        <div class="error-msg" id="error-msg"></div>
+        <button class="btn btn-secondary" id="retry-btn" style="display:none;">إعادة المحاولة</button>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">🧠</div>
+        <h1>تحدي العباقرة</h1>
+        <p>اختبر معلوماتك في مسابقة ذكية تتحدى عقلك.</p>
+        
+        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 15px; width: 100%; margin-bottom: 2rem; text-align: center;">
+            <div class="stat-label">أعلى نتيجة</div>
+            <div class="stat-value" id="high-score-display" style="color: var(--warning);">0</div>
+        </div>
+
+        <button class="btn" id="start-btn">ابدأ التحدي</button>
+        <button class="btn btn-secondary" id="mute-btn-start">🔊 الصوت مفعل</button>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen">
+        <div class="top-bar">
+            <div>
+                <div class="stat-label">المستوى <span id="level-display">1</span></div>
+                <div class="stat-value" id="score-display">0</div>
+            </div>
+            <div style="text-align: left;">
+                <div class="stat-label">المرحلة <span id="stage-display">1</span></div>
+                <div class="stat-value" id="q-progress-display">1/5</div>
+            </div>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar" id="stage-progress-bar"></div>
+        </div>
+        <div class="timer-container">
+            <svg class="timer-svg" width="80" height="80">
+                <circle class="timer-bg" cx="40" cy="40" r="36"></circle>
+                <circle class="timer-path" id="timer-circle" cx="40" cy="40" r="36" stroke-dasharray="226" stroke-dashoffset="0"></circle>
+            </svg>
+            <div class="timer-text" id="timer-text">15</div>
+        </div>
+
+        <div class="question-card">
+            <div class="question-text" id="question-text">جاري تحميل السؤال...</div>
+        </div>
+
+        <div class="options-grid" id="options-container"></div>
+
+        <div class="lifeline-container">
+            <button class="lifeline-btn" id="btn-5050" title="حذف إجابتين">50:50</button>
+            <button class="lifeline-btn" id="mute-btn-game">🔊</button>
+        </div>
+    </div>
+
+    <!-- Stage Complete Screen -->
+    <div id="stage-screen" class="screen">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">🏆</div>
+        <h1>مرحلة مكتملة!</h1>
+        <p>أداء مذهل! استعد للمرحلة التالية.</p>
+        <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 15px; width: 100%; margin-bottom: 2rem; text-align: center;">
+            <div class="stat-label">نقاط المرحلة</div>
+            <div class="stat-value" id="stage-score">+500</div>
+        </div>
+        <button class="btn" id="next-stage-btn">المرحلة التالية</button>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over-screen" class="screen">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">💔</div>
+        <h1>انتهت اللعبة</h1>
+        <p>حظ أوفر في المرة القادمة!</p>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; width: 100%; margin-bottom: 2rem;">
+            <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 15px; text-align: center;">
+                <div class="stat-label">النتيجة</div>
+                <div class="stat-value" id="final-score">0</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 15px; text-align: center;">
+                <div class="stat-label">أعلى نتيجة</div>
+                <div class="stat-value" id="final-high-score">0</div>
+            </div>
+        </div>
+        <button class="btn" id="restart-btn">إعادة اللعب</button>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
