@@ -20,7 +20,7 @@ body {
     background: linear-gradient(135deg, var(--bg-dark) 0%, #1e1b4b 100%);
     color: var(--text-main);
     height: 100vh;
-    overflow: hidden;
+    overflow: hidden; /* يمنع اهتزاز الصفحة الخارجية */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -39,15 +39,28 @@ body {
     border-right: 1px solid rgba(255,255,255,0.1);
 }
 
+/* 📥 تفعيل الـ Scroll في الشاشات لحل مشكلة الشاشات الصغيرة */
 .screen {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start; /* تبدأ من الأعلى لتدعم السكرول المريح */
     padding: 2rem;
     opacity: 0; pointer-events: none;
     transition: opacity 0.4s ease, transform 0.4s ease;
     transform: scale(0.95);
-    z-index: 1;}
+    z-index: 1;
+    overflow-y: auto; /* تفعيل التمرير الرأسي التلقائي داخل كل شاشة */
+    scrollbar-width: thin; /* تحسين مظهر التمرير لمتصفحات فندور */
+}
+
+/* إخفاء شريط التمرير الافتراضي البشع لمتصفحات ويبكيت */
+.screen::-webkit-scrollbar {
+    width: 6px;
+}
+.screen::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+}
 
 .screen.active { opacity: 1; pointer-events: all; transform: scale(1); z-index: 10; }
 
@@ -63,6 +76,7 @@ p { color: var(--text-muted); text-align: center; margin-bottom: 2rem; line-heig
     font-family: inherit; font-weight: 600;
     box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
     width: 100%; max-width: 300px; margin: 0.5rem 0;
+    flex-shrink: 0; /* يمنع انكماش الأزرار عند ظهور السكرول */
 }
 .btn:active { transform: scale(0.96); }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
@@ -70,12 +84,25 @@ p { color: var(--text-muted); text-align: center; margin-bottom: 2rem; line-heig
 
 #game-screen { justify-content: flex-start; padding-top: 1rem; }
 
+/* شريط الخصم المضاف حديثاً */
+.opponent-bar {
+    width: 100%;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    padding: 0.5rem 1rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
 .top-bar { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0 1rem; margin-bottom: 1rem; }
 
-.progress-container { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-bottom: 1.5rem; overflow: hidden; }
+.progress-container { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-bottom: 1.5rem; overflow: hidden; flex-shrink: 0; }
 .progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--secondary)); width: 0%; transition: width 0.3s ease; }
 
-.timer-container { position: relative; width: 80px; height: 80px; margin: 1rem auto; display: flex; justify-content: center; align-items: center; }
+.timer-container { position: relative; width: 80px; height: 80px; margin: 1rem auto; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
 .timer-svg circle { fill: none; stroke-width: 6; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; }
 .timer-bg { stroke: rgba(255,255,255,0.1); }
 .timer-path { stroke: var(--success); transition: stroke-dashoffset 0.1s linear, stroke 0.3s; }
@@ -86,6 +113,7 @@ p { color: var(--text-muted); text-align: center; margin-bottom: 2rem; line-heig
     text-align: center; margin-bottom: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     border: 1px solid rgba(255,255,255,0.05); min-height: 120px;
     display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
 }
 .question-text { font-size: 1.3rem; font-weight: 500; line-height: 1.5; }
 
@@ -96,12 +124,13 @@ p { color: var(--text-muted); text-align: center; margin-bottom: 2rem; line-heig
     cursor: pointer; transition: all 0.2s; display: flex; align-items: center;
     justify-content: center; text-align: center; min-height: 80px;
 }
-.option-btn:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }.option-btn:active { transform: scale(0.98); }
+.option-btn:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
+.option-btn:active { transform: scale(0.98); }
 .option-btn.correct { background: var(--success); border-color: var(--success); color: white; animation: pulse 0.5s; }
 .option-btn.wrong { background: var(--danger); border-color: var(--danger); color: white; animation: shake 0.4s; }
 .option-btn.hidden { visibility: hidden; opacity: 0; pointer-events: none; }
 
-.lifeline-container { display: flex; gap: 1rem; margin-bottom: 1rem; }
+.lifeline-container { display: flex; gap: 1rem; margin-bottom: 1rem; flex-shrink: 0; }
 .lifeline-btn {
     width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.1);
     border: 2px solid var(--warning); color: var(--warning); display: flex;
