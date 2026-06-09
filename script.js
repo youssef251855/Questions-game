@@ -48,6 +48,7 @@ class AudioManager {
     playWarning() { this.playTone(400, 'triangle', 0.1); setTimeout(() => this.playTone(400, 'triangle', 0.1), 150); }
     playStageComplete() { [400, 500, 600, 800].forEach((f, i) => setTimeout(() => this.playTone(f, 'sine', 0.2), i * 150)); }
 }
+
 /**
  * GAME CLASS
  */
@@ -59,13 +60,16 @@ class Game {
             score: 0, level: 1, stage: 1, currentQuestionIndex: 0,
             questionsInStage: 5, timeLeft: 0, timerInterval: null,
             maxTime: 15, usedQuestions: [], lifelines: { '5050': true },
-            isPlaying: false, currentQuestion: null
+            isPlaying: false, currentQuestion: null,
+            isOnlineMode: false, opponentScore: 0, opponentInterval: null
         };
         
         this.ui = {
             screens: {
                 loading: document.getElementById('loading-screen'),
                 start: document.getElementById('start-screen'),
+                mode: document.getElementById('mode-screen'),
+                matchmaking: document.getElementById('matchmaking-screen'),
                 game: document.getElementById('game-screen'),
                 stage: document.getElementById('stage-screen'),
                 over: document.getElementById('game-over-screen')
@@ -85,7 +89,16 @@ class Game {
                 finalHighScore: document.getElementById('final-high-score'),
                 stageScore: document.getElementById('stage-score'),
                 btn5050: document.getElementById('btn-5050'),
-                startBtn: document.getElementById('start-btn'),
+                modeSelectBtn: document.getElementById('mode-select-btn'),
+                soloBtn: document.getElementById('solo-btn'),
+                onlineBtn: document.getElementById('online-btn'),
+                backToStartBtn: document.getElementById('back-to-start-btn'),
+                cancelMatchBtn: document.getElementById('cancel-match-btn'),
+                opponentBar: document.getElementById('opponent-bar'),
+                opponentScore: document.getElementById('opponent-score'),
+                opponentStatus: document.getElementById('opponent-status'),
+                gameOverTitle: document.getElementById('game-over-title'),
+                gameOverMsg: document.getElementById('game-over-msg'),
                 muteBtnStart: document.getElementById('mute-btn-start'),
                 muteBtnGame: document.getElementById('mute-btn-game'),
                 nextStageBtn: document.getElementById('next-stage-btn'),
@@ -96,11 +109,17 @@ class Game {
         };
 
         this.bindEvents();
-        this.loadHighScore();        this.fetchQuestions();
+        this.loadHighScore();
+        this.fetchQuestions();
     }
 
     bindEvents() {
-        if (this.ui.elements.startBtn) this.ui.elements.startBtn.addEventListener('click', () => this.start());
+        if (this.ui.elements.modeSelectBtn) this.ui.elements.modeSelectBtn.addEventListener('click', () => this.showScreen('mode'));
+        if (this.ui.elements.backToStartBtn) this.ui.elements.backToStartBtn.addEventListener('click', () => this.showScreen('start'));
+        if (this.ui.elements.soloBtn) this.ui.elements.soloBtn.addEventListener('click', () => this.startSolo());
+        if (this.ui.elements.onlineBtn) this.ui.elements.onlineBtn.addEventListener('click', () => this.startMatchmaking());
+        if (this.ui.elements.cancelMatchBtn) this.ui.elements.cancelMatchBtn.addEventListener('click', () => this.cancelMatchmaking());
+        
         if (this.ui.elements.muteBtnStart) this.ui.elements.muteBtnStart.addEventListener('click', () => this.toggleMute());
         if (this.ui.elements.muteBtnGame) this.ui.elements.muteBtnGame.addEventListener('click', () => this.toggleMute());
         if (this.ui.elements.btn5050) this.ui.elements.btn5050.addEventListener('click', () => this.useLifeline('5050'));
@@ -144,7 +163,7 @@ class Game {
 
             if (this.questions.length === 0) throw new Error('لا توجد أسئلة صالحة');
             
-            if (this.ui.elements.startBtn) this.ui.elements.startBtn.disabled = false;
+            if (this.ui.elements.modeSelectBtn) this.ui.elements.modeSelectBtn.disabled = false;
             this.showScreen('start');            
         } catch (error) {
             console.error('❌ Fetch error:', error);
@@ -153,7 +172,7 @@ class Game {
                 this.ui.elements.errorMsg.style.display = 'block';
             }
             if (this.ui.elements.retryBtn) this.ui.elements.retryBtn.style.display = 'inline-block';
-            if (this.ui.elements.startBtn) this.ui.elements.startBtn.disabled = true;
+            if (this.ui.elements.modeSelectBtn) this.ui.elements.modeSelectBtn.disabled = true;
         }
     }
 
@@ -162,24 +181,45 @@ class Game {
         if (this.ui.screens[name]) this.ui.screens[name].classList.add('active');
     }
 
-    switchScreen(name) {
-        Object.values(this.ui.screens).forEach(s => { if (s) s.classList.remove('active'); });
-        if (this.ui.screens[name]) this.ui.screens[name].classList.add('active');
+    startSolo() {
+        this.state.isOnlineMode = false;
+        if (this.ui.elements.opponentBar) this.ui.elements.opponentBar.style.display = 'none';
+        this.initGameSession();
     }
 
-    // ✅ الدالة المصححة
-    start() {
+    startMatchmaking() {
+        this.showScreen('matchmaking');
+        document.getElementById('match-status').textContent = 'جاري الاتصال بقاعدة البيانات والبحث...';
+        
+        this.matchmakingTimeout = setTimeout(() => {
+            document.getElementById('match-status').textContent = 'تم العثور على لاعب منافس! بدأت المباراة...';
+            setTimeout(() => {
+                this.state.isOnlineMode = true;
+                this.state.opponentScore = 0;
+                if (this.ui.elements.opponentBar) this.ui.elements.opponentBar.style.display = 'flex';
+                if (this.ui.elements.opponentScore) this.ui.elements.opponentScore.textContent = '0';
+                this.initGameSession();
+            }, 1000);
+        }, 2500);
+    }
+
+    cancelMatchmaking() {
+        if (this.matchmakingTimeout) clearTimeout(this.matchmakingTimeout);
+        this.showScreen('mode');
+    }
+
+    initGameSession() {
         this.audio.init();
         this.state = {
+            ...this.state,
             score: 0, level: 1, stage: 1, currentQuestionIndex: 0,
             questionsInStage: 5, timeLeft: 0, timerInterval: null,
             maxTime: 15, usedQuestions: [], lifelines: { '5050': true },
-            isPlaying: true,  // ✅ التصحيح هنا
-            currentQuestion: null
+            isPlaying: true, currentQuestion: null
         };
         this.updateUI();
         if (this.ui.elements.btn5050) this.ui.elements.btn5050.classList.remove('used');
-        this.switchScreen('game');
+        this.showScreen('game');
         this.nextQuestion();
     }
 
@@ -194,7 +234,7 @@ class Game {
             this.state.usedQuestions = []; 
             return this.getRandomQuestion(); 
         }
-                const randomIdx = Math.floor(Math.random() * availableIndices.length);
+        const randomIdx = Math.floor(Math.random() * availableIndices.length);
         const questionIndex = availableIndices[randomIdx];
         const question = this.questions[questionIndex];
         
@@ -220,6 +260,31 @@ class Game {
         this.renderQuestion(q);
         this.startTimer();
         this.updateUI();
+
+        if (this.state.isOnlineMode) {
+            this.simulateOpponentAction();
+        }
+    }
+
+    simulateOpponentAction() {
+        if (this.state.opponentInterval) clearInterval(this.state.opponentInterval);
+        if (this.ui.elements.opponentStatus) this.ui.elements.opponentStatus.textContent = 'يفكر...';
+
+        const processingTime = (Math.random() * 6 + 3) * 1000; // الخصم يجيب بين 3 لـ 9 ثوانٍ
+        
+        this.state.opponentInterval = setTimeout(() => {
+            if (!this.state.isPlaying) return;
+            
+            const isCorrect = Math.random() > 0.25; // نسبة إجابة الخصم صحيحة هي 75%
+            if (isCorrect) {
+                const opponentPoints = Math.floor((100 + Math.random() * 100) * this.state.level);
+                this.state.opponentScore += opponentPoints;
+                if (this.ui.elements.opponentScore) this.ui.elements.opponentScore.textContent = this.state.opponentScore;
+                if (this.ui.elements.opponentStatus) this.ui.elements.opponentStatus.textContent = 'أجاب بشكل صحيح! ✅';
+            } else {
+                if (this.ui.elements.opponentStatus) this.ui.elements.opponentStatus.textContent = 'أخطأ في الإجابة! ❌';
+            }
+        }, processingTime);
     }
 
     renderQuestion(q) {
@@ -292,8 +357,10 @@ class Game {
     }
 
     handleAnswer(btn, isCorrect) {
-        if (!this.state.isPlaying) return;        this.state.isPlaying = false;
+        if (!this.state.isPlaying) return;        
+        this.state.isPlaying = false;
         clearInterval(this.state.timerInterval);
+        if (this.state.opponentInterval) clearTimeout(this.state.opponentInterval);
 
         if (isCorrect) {
             btn.classList.add('correct');
@@ -342,9 +409,12 @@ class Game {
             this.audio.playTick();
         }
     }
+
     completeStage() {
         clearInterval(this.state.timerInterval);
+        if (this.state.opponentInterval) clearTimeout(this.state.opponentInterval);
         this.state.isPlaying = false;
+        
         const stageBonus = 500 * this.state.stage;
         this.state.score += stageBonus;
         this.state.stage++;
@@ -353,17 +423,35 @@ class Game {
         if (this.ui.elements.stageScore) this.ui.elements.stageScore.textContent = `+${stageBonus}`;
         this.audio.playStageComplete();
         this.updateUI();
-        this.switchScreen('stage');
+        this.showScreen('stage');
     }
 
     nextStage() {
         this.state.isPlaying = true;
-        this.switchScreen('game');
+        this.showScreen('game');
         this.nextQuestion();
     }
 
     gameOver() {
         this.state.isPlaying = false;
+        if (this.state.opponentInterval) clearTimeout(this.state.opponentInterval);
+
+        if (this.state.isOnlineMode) {
+            if (this.state.score > this.state.opponentScore) {
+                this.ui.elements.gameOverTitle.textContent = '🎉 انتصرت في التحدي!';
+                this.ui.elements.gameOverMsg.textContent = `لقد تغلبت على منافسك بفارق ${this.state.score - this.state.opponentScore} نقطة!`;
+            } else if (this.state.score < this.state.opponentScore) {
+                this.ui.elements.gameOverTitle.textContent = '📉 هزيمة!';
+                this.ui.elements.gameOverMsg.textContent = `انتصر الخصم عليك بفارق ${this.state.opponentScore - this.state.score} نقطة. حظاً أوفر!`;
+            } else {
+                this.ui.elements.gameOverTitle.textContent = '🤝 تعادل صلب!';
+                this.ui.elements.gameOverMsg.textContent = 'أنت ومنافسك أحرزتما نفس النقاط تماماً!';
+            }
+        } else {
+            this.ui.elements.gameOverTitle.textContent = 'انتهت اللعبة';
+            this.ui.elements.gameOverMsg.textContent = 'حظ أوفر في المرة القادمة!';
+        }
+
         const currentHigh = parseInt(localStorage.getItem('quizHighScore') || 0);
         if (this.state.score > currentHigh) {
             localStorage.setItem('quizHighScore', this.state.score);
@@ -371,10 +459,13 @@ class Game {
         }
         if (this.ui.elements.finalScore) this.ui.elements.finalScore.textContent = this.state.score;
         if (this.ui.elements.finalHighScore) this.ui.elements.finalHighScore.textContent = localStorage.getItem('quizHighScore') || 0;
-        this.switchScreen('over');
+        this.showScreen('over');
     }
 
-    reset() { this.switchScreen('start'); }
+    reset() { 
+        if (this.state.opponentInterval) clearInterval(this.state.opponentInterval);
+        this.showScreen('start'); 
+    }
 
     updateUI() {
         if (this.ui.elements.score) this.ui.elements.score.textContent = this.state.score;
@@ -390,4 +481,5 @@ class Game {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    window.game = new Game();});
+    window.game = new Game();
+});
