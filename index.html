@@ -9,7 +9,6 @@
 <body>
 
 <div id="app">
-    <!-- Loading Screen -->
     <div id="loading-screen" class="screen active">
         <span class="loader"></span>
         <p>جاري تحميل الأسئلة...</p>
@@ -17,7 +16,6 @@
         <button class="btn btn-secondary" id="retry-btn" style="display:none;">إعادة المحاولة</button>
     </div>
 
-    <!-- Start Screen -->
     <div id="start-screen" class="screen">
         <div style="font-size: 4rem; margin-bottom: 1rem;">🧠</div>
         <h1>تحدي العباقرة</h1>
@@ -32,7 +30,6 @@
         <button class="btn btn-secondary" id="mute-btn-start">🔊 الصوت مفعل</button>
     </div>
 
-    <!-- Mode Selection Screen (جديد) -->
     <div id="mode-screen" class="screen">
         <div style="font-size: 4rem; margin-bottom: 1rem;">🎮</div>
         <h1>اختر وضع اللعب</h1>
@@ -42,21 +39,36 @@
         <button class="btn btn-secondary" id="back-to-start-btn">رجوع</button>
     </div>
 
-    <!-- Matchmaking Screen (جديد) -->
-    <div id="matchmaking-screen" class="screen">
-        <span class="loader" style="border-color: var(--secondary); border-bottom-color: transparent;"></span>
-        <h1>جاري البحث عن منافس...</h1>
-        <p>يتم الآن الاتصال بالسيرفر والبحث عن لاعب مستعد للتحدي.</p>
-        <div id="match-status" style="color: var(--warning); font-weight: bold; margin-bottom: 2rem;">انتظار اللاعب الآخر...</div>
-        <button class="btn btn-secondary" id="cancel-match-btn">إلغاء البحث</button>
+    <div id="online-lobby-screen" class="screen">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">🏠</div>
+        <h1>غرف التحدي</h1>
+        <p>أنشئ غرفة خاصة وأرسل الكود لصديقك، أو أدخل كود غرفة موجودة للانضمام.</p>
+        
+        <button class="btn" id="create-room-btn">إنشاء غرفة جديدة ➕</button>
+        
+        <div style="width: 100%; max-width: 300px; margin: 1.5rem 0; height: 1px; background: rgba(255,255,255,0.1);"></div>
+        
+        <input type="text" id="room-code-input" placeholder="أدخل كود الغرفة هنا..." style="width: 100%; max-width: 300px; padding: 1rem; border-radius: 15px; border: 2px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: #fff; text-align: center; font-size: 1.2rem; margin-bottom: 0.5rem; outline: none; font-family: inherit;">
+        <button class="btn btn-secondary" id="join-room-btn" style="border-color: var(--primary); color: var(--primary);">انضمام للغرفة 🚪</button>
+        
+        <button class="btn btn-secondary" id="back-to-mode-btn" style="margin-top: 2rem;">رجوع</button>
     </div>
 
-    <!-- Game Screen -->
+    <div id="matchmaking-screen" class="screen">
+        <span class="loader" style="border-color: var(--secondary); border-bottom-color: transparent;"></span>
+        <h1 id="waiting-screen-title">جاري إعداد الغرفة...</h1>
+        <p id="waiting-screen-desc">شارك الكود التالي مع صديقك لبدء التحدي:</p>
+        
+        <div id="display-room-code" style="font-size: 2.5rem; font-weight: bold; color: var(--warning); background: rgba(0,0,0,0.3); padding: 0.5rem 2rem; border-radius: 15px; letter-spacing: 4px; margin-bottom: 1.5rem; border: 1px dashed var(--warning); text-align: center;">-----</div>
+        
+        <div id="match-status" style="color: var(--text-main); font-weight: bold; margin-bottom: 2rem; text-align: center;">في انتظار انضمام المنافس...</div>
+        <button class="btn btn-secondary" id="cancel-match-btn">إلغاء ومغادرة الغرفة</button>
+    </div>
+
     <div id="game-screen" class="screen">
-        <!-- شريط الخصم في وضع الأونلاين -->
         <div id="opponent-bar" class="opponent-bar" style="display: none;">
             <span class="stat-label">🔴 المنافس: <span id="opponent-score">0</span></span>
-            <span id="opponent-status" style="font-size: 0.8rem; color: var(--text-muted);">يفكر...</span>
+            <span id="opponent-status" style="font-size: 0.8rem; color: var(--text-muted);">متصل</span>
         </div>
 
         <div class="top-bar">
@@ -73,6 +85,7 @@
         <div class="progress-container">
             <div class="progress-bar" id="stage-progress-bar"></div>
         </div>
+        
         <div class="timer-container">
             <svg class="timer-svg" width="80" height="80">
                 <circle class="timer-bg" cx="40" cy="40" r="36"></circle>
@@ -93,7 +106,6 @@
         </div>
     </div>
 
-    <!-- Stage Complete Screen -->
     <div id="stage-screen" class="screen">
         <div style="font-size: 4rem; margin-bottom: 1rem;">🏆</div>
         <h1>مرحلة مكتملة!</h1>
@@ -105,7 +117,6 @@
         <button class="btn" id="next-stage-btn">المرحلة التالية</button>
     </div>
 
-    <!-- Game Over Screen -->
     <div id="game-over-screen" class="screen">
         <div style="font-size: 4rem; margin-bottom: 1rem;">💔</div>
         <h1 id="game-over-title">انتهت اللعبة</h1>
@@ -125,6 +136,6 @@
     </div>
 </div>
 
-<script src="script.js"></script>
+<script type="module" src="script.js"></script>
 </body>
 </html>
