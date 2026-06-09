@@ -1,6 +1,22 @@
-/**
- * API CONFIGURATION
- */
+// استيراد الحزم الضرورية لإدارة الغرف اللحظية عبر Firebase
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+import { getDatabase, ref, set, onValue, update, remove, get, off } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
+
+// إعدادات وبيانات الاتصال بـ Firebase الخاصة بك
+const firebaseConfig = {
+    apiKey: "AIzaSyCojizC_NgBVIDKxPsawKIBQwcLOgF8vRw",
+    authDomain: "quran-febbe.firebaseapp.com",
+    databaseURL: "https://quran-febbe-default-rtdb.firebaseio.com",
+    projectId: "quran-febbe",
+    storageBucket: "quran-febbe.firebasestorage.app",
+    messagingSenderId: "495226832744",
+    appId: "1:495226832744:web:4beca9e93a3848b0b838dd",
+    measurementId: "G-TDCVSR2QLT"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
 const API_URL = 'https://youssef251855.github.io/Questions/questions.json';
 
 /**
@@ -11,21 +27,11 @@ class AudioManager {
         this.ctx = null;
         this.muted = false;
     }
-
     init() {
-        if (!this.ctx) {
-            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (this.ctx.state === 'suspended') {
-            this.ctx.resume();
-        }
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
     }
-
-    toggleMute() {
-        this.muted = !this.muted;
-        return this.muted;
-    }
-
+    toggleMute() { this.muted = !this.muted; return this.muted; }
     playTone(freq, type, duration) {
         if (this.muted || !this.ctx) return;
         try {
@@ -35,13 +41,10 @@ class AudioManager {
             osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
             gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-            osc.start();
-            osc.stop(this.ctx.currentTime + duration);
-        } catch(e) { console.error('Audio error:', e); }
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(); osc.stop(this.ctx.currentTime + duration);
+        } catch(e) { console.error(e); }
     }
-
     playCorrect() { this.playTone(600, 'sine', 0.1); setTimeout(() => this.playTone(800, 'sine', 0.2), 100); }
     playWrong() { this.playTone(150, 'sawtooth', 0.3); setTimeout(() => this.playTone(100, 'sawtooth', 0.3), 150); }
     playTick() { this.playTone(800, 'square', 0.05); }
@@ -56,12 +59,19 @@ class Game {
     constructor() {
         this.audio = new AudioManager();
         this.questions = [];
+        
+        // إعدادات اللاعب المؤقت والغرف
+        this.playerId = "user_" + Math.random().toString(36).substr(2, 9);
+        this.currentRoomCode = null;
+        this.playerRole = null; 
+        this.roomRef = null;
+
         this.state = {
             score: 0, level: 1, stage: 1, currentQuestionIndex: 0,
             questionsInStage: 5, timeLeft: 0, timerInterval: null,
-            maxTime: 15, usedQuestions: [], lifelines: { '5050': true },
+            maxTime: 25, usedQuestions: [], lifelines: { '5050': true },
             isPlaying: false, currentQuestion: null,
-            isOnlineMode: false, opponentScore: 0, opponentInterval: null
+            isOnlineMode: false, opponentScore: 0
         };
         
         this.ui = {
@@ -69,6 +79,7 @@ class Game {
                 loading: document.getElementById('loading-screen'),
                 start: document.getElementById('start-screen'),
                 mode: document.getElementById('mode-screen'),
+                lobby: document.getElementById('online-lobby-screen'),
                 matchmaking: document.getElementById('matchmaking-screen'),
                 game: document.getElementById('game-screen'),
                 stage: document.getElementById('stage-screen'),
@@ -93,7 +104,15 @@ class Game {
                 soloBtn: document.getElementById('solo-btn'),
                 onlineBtn: document.getElementById('online-btn'),
                 backToStartBtn: document.getElementById('back-to-start-btn'),
+                createRoomBtn: document.getElementById('create-room-btn'),
+                joinRoomBtn: document.getElementById('join-room-btn'),
+                roomCodeInput: document.getElementById('room-code-input'),
+                backToModeBtn: document.getElementById('back-to-mode-btn'),
+                displayRoomCode: document.getElementById('display-room-code'),
                 cancelMatchBtn: document.getElementById('cancel-match-btn'),
+                waitingTitle: document.getElementById('waiting-screen-title'),
+                waitingDesc: document.getElementById('waiting-screen-desc'),
+                matchStatus: document.getElementById('match-status'),
                 opponentBar: document.getElementById('opponent-bar'),
                 opponentScore: document.getElementById('opponent-score'),
                 opponentStatus: document.getElementById('opponent-status'),
@@ -114,18 +133,20 @@ class Game {
     }
 
     bindEvents() {
-        if (this.ui.elements.modeSelectBtn) this.ui.elements.modeSelectBtn.addEventListener('click', () => this.showScreen('mode'));
-        if (this.ui.elements.backToStartBtn) this.ui.elements.backToStartBtn.addEventListener('click', () => this.showScreen('start'));
-        if (this.ui.elements.soloBtn) this.ui.elements.soloBtn.addEventListener('click', () => this.startSolo());
-        if (this.ui.elements.onlineBtn) this.ui.elements.onlineBtn.addEventListener('click', () => this.startMatchmaking());
-        if (this.ui.elements.cancelMatchBtn) this.ui.elements.cancelMatchBtn.addEventListener('click', () => this.cancelMatchmaking());
-        
-        if (this.ui.elements.muteBtnStart) this.ui.elements.muteBtnStart.addEventListener('click', () => this.toggleMute());
-        if (this.ui.elements.muteBtnGame) this.ui.elements.muteBtnGame.addEventListener('click', () => this.toggleMute());
-        if (this.ui.elements.btn5050) this.ui.elements.btn5050.addEventListener('click', () => this.useLifeline('5050'));
-        if (this.ui.elements.nextStageBtn) this.ui.elements.nextStageBtn.addEventListener('click', () => this.nextStage());
-        if (this.ui.elements.restartBtn) this.ui.elements.restartBtn.addEventListener('click', () => this.reset());
-        if (this.ui.elements.retryBtn) this.ui.elements.retryBtn.addEventListener('click', () => this.fetchQuestions());
+        this.ui.elements.modeSelectBtn?.addEventListener('click', () => this.showScreen('mode'));
+        this.ui.elements.backToStartBtn?.addEventListener('click', () => this.showScreen('start'));
+        this.ui.elements.soloBtn?.addEventListener('click', () => this.startSolo());
+        this.ui.elements.onlineBtn?.addEventListener('click', () => this.showScreen('lobby'));
+        this.ui.elements.backToModeBtn?.addEventListener('click', () => this.showScreen('mode'));
+        this.ui.elements.createRoomBtn?.addEventListener('click', () => this.handleCreateRoom());
+        this.ui.elements.joinRoomBtn?.addEventListener('click', () => this.handleJoinRoom());
+        this.ui.elements.cancelMatchBtn?.addEventListener('click', () => this.handleLeaveRoom());
+        this.ui.elements.muteBtnStart?.addEventListener('click', () => this.toggleMute());
+        this.ui.elements.muteBtnGame?.addEventListener('click', () => this.toggleMute());
+        this.ui.elements.btn5050?.addEventListener('click', () => this.useLifeline('5050'));
+        this.ui.elements.nextStageBtn?.addEventListener('click', () => this.nextStage());
+        this.ui.elements.restartBtn?.addEventListener('click', () => this.reset());
+        this.ui.elements.retryBtn?.addEventListener('click', () => this.fetchQuestions());
     }
 
     loadHighScore() {
@@ -144,41 +165,27 @@ class Game {
 
     async fetchQuestions() {
         this.showScreen('loading');
-        if (this.ui.elements.errorMsg) this.ui.elements.errorMsg.style.display = 'none';
-        if (this.ui.elements.retryBtn) this.ui.elements.retryBtn.style.display = 'none';
-        
         try {
-            const response = await fetch(API_URL, { cache: 'no-cache', headers: { 'Accept': 'application/json' } });
+            const response = await fetch(API_URL, { cache: 'no-cache' });
             if (!response.ok) throw new Error('HTTP ' + response.status);
             const data = await response.json();
-            
-            this.questions = (Array.isArray(data) ? data : [])
-                .map((q, idx) => ({
-                    id: q.id || idx,
-                    question: q.question || q.text || q.q || '',
-                    correctAnswer: q.correctAnswer || q.answer || q.correct || '',
-                    answers: q.answers || q.options || q.choices || []
-                }))
-                .filter(q => q.question && q.correctAnswer && Array.isArray(q.answers) && q.answers.length >= 2);
-
-            if (this.questions.length === 0) throw new Error('لا توجد أسئلة صالحة');
-            
-            if (this.ui.elements.modeSelectBtn) this.ui.elements.modeSelectBtn.disabled = false;
+            this.questions = data.map((q, idx) => ({
+                id: q.id || idx,
+                question: q.question || q.text || q.q || '',
+                correctAnswer: q.correctAnswer || q.answer || q.correct || '',
+                answers: q.answers || q.options || q.choices || []
+            })).filter(q => q.question && q.correctAnswer && q.answers.length >= 2);
             this.showScreen('start');            
         } catch (error) {
-            console.error('❌ Fetch error:', error);
-            if (this.ui.elements.errorMsg) {
-                this.ui.elements.errorMsg.textContent = '⚠️ تعذر تحميل الأسئلة: ' + error.message;
-                this.ui.elements.errorMsg.style.display = 'block';
-            }
-            if (this.ui.elements.retryBtn) this.ui.elements.retryBtn.style.display = 'inline-block';
-            if (this.ui.elements.modeSelectBtn) this.ui.elements.modeSelectBtn.disabled = true;
+            this.ui.elements.errorMsg.textContent = '⚠️ تعذر تحميل الأسئلة: ' + error.message;
+            this.ui.elements.errorMsg.style.display = 'block';
+            this.ui.elements.retryBtn.style.display = 'inline-block';
         }
     }
 
     showScreen(name) {
-        Object.values(this.ui.screens).forEach(s => { if (s) s.classList.remove('active'); });
-        if (this.ui.screens[name]) this.ui.screens[name].classList.add('active');
+        Object.values(this.ui.screens).forEach(s => s?.classList.remove('active'));
+        this.ui.screens[name]?.classList.add('active');
     }
 
     startSolo() {
@@ -187,29 +194,155 @@ class Game {
         this.initGameSession();
     }
 
-    startMatchmaking() {
+    async handleCreateRoom() {
+        this.audio.init();
+        const roomCode = Math.floor(10000 + Math.random() * 90000).toString();
+        this.currentRoomCode = roomCode;
+        this.playerRole = 'creator';
+        this.state.isOnlineMode = true;
+
+        this.ui.elements.waitingTitle.textContent = "تم إنشاء الغرفة!";
+        this.ui.elements.waitingDesc.textContent = "شارك هذا الكود المكون من 5 أرقام مع منافسك:";
+        this.ui.elements.displayRoomCode.textContent = roomCode;
+        this.ui.elements.matchStatus.textContent = "في انتظار دخول اللاعب الآخر...";
         this.showScreen('matchmaking');
-        document.getElementById('match-status').textContent = 'جاري الاتصال بقاعدة البيانات والبحث...';
-        
-        this.matchmakingTimeout = setTimeout(() => {
-            document.getElementById('match-status').textContent = 'تم العثور على لاعب منافس! بدأت المباراة...';
-            setTimeout(() => {
-                this.state.isOnlineMode = true;
-                this.state.opponentScore = 0;
-                if (this.ui.elements.opponentBar) this.ui.elements.opponentBar.style.display = 'flex';
-                if (this.ui.elements.opponentScore) this.ui.elements.opponentScore.textContent = '0';
-                this.initGameSession();
-            }, 1000);
-        }, 2500);
+
+        this.roomRef = ref(db, 'rooms/' + roomCode);
+
+        await set(this.roomRef, {
+            creatorId: this.playerId,
+            joinerId: '',
+            status: 'waiting',
+            creatorScore: 0,
+            joinerScore: 0,
+            lastUpdatedBy: ''
+        });
+
+        onValue(this.roomRef, (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            if (data.status === 'waiting' && data.joinerId !== '') {
+                update(this.roomRef, { status: 'playing' });
+            }
+
+            if (data.status === 'playing') {
+                if (!this.state.isPlaying && this.ui.screens.matchmaking.classList.contains('active')) {
+                    this.setupOnlineGameBoard();
+                }
+                const oppScore = this.playerRole === 'creator' ? data.joinerScore : data.creatorScore;
+                this.state.opponentScore = oppScore;
+                if (this.ui.elements.opponentScore) this.ui.elements.opponentScore.textContent = oppScore;
+                if (data.lastUpdatedBy && data.lastUpdatedBy !== this.playerId) {
+                    if (this.ui.elements.opponentStatus) this.ui.elements.opponentStatus.textContent = "أجاب بشكل صحيح! 🔥";
+                }
+            }
+
+            if (data.status === 'opponent_left') {
+                this.handleOpponentDisconnected();
+            }
+        });
     }
 
-    cancelMatchmaking() {
-        if (this.matchmakingTimeout) clearTimeout(this.matchmakingTimeout);
+    async handleJoinRoom() {
+        this.audio.init();
+        const roomCode = this.ui.elements.roomCodeInput.value.trim();
+        if (!roomCode) { alert("من فضلك أدخل كود الغرفة أولاً!"); return; }
+
+        const checkRef = ref(db, 'rooms/' + roomCode);
+        const snapshot = await get(checkRef);
+        
+        if (!snapshot.exists()) {
+            alert("عذراً، كود الغرفة هذا غير موجود!");
+            return;
+        }
+
+        const data = snapshot.val();
+        if (data.status !== 'waiting' || data.joinerId !== '') {
+            alert("هذه الغرفة ممتلئة باللاعبين أو بدأت بالفعل!");
+            return;
+        }
+
+        this.currentRoomCode = roomCode;
+        this.playerRole = 'joiner';
+        this.state.isOnlineMode = true;
+        this.roomRef = checkRef;
+
+        this.ui.elements.waitingTitle.textContent = "جاري الاتصال بالغرفة...";
+        this.ui.elements.waitingDesc.textContent = "كود الغرفة المتصل بها:";
+        this.ui.elements.displayRoomCode.textContent = roomCode;
+        this.ui.elements.matchStatus.textContent = "جاري مزامنة اللعبة...";
+        this.showScreen('matchmaking');
+
+        await update(this.roomRef, { joinerId: this.playerId });
+
+        onValue(this.roomRef, (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            if (data.status === 'playing') {
+                if (!this.state.isPlaying && this.ui.screens.matchmaking.classList.contains('active')) {
+                    this.setupOnlineGameBoard();
+                }
+                const oppScore = this.playerRole === 'creator' ? data.joinerScore : data.creatorScore;
+                this.state.opponentScore = oppScore;
+                if (this.ui.elements.opponentScore) this.ui.elements.opponentScore.textContent = oppScore;
+                if (data.lastUpdatedBy && data.lastUpdatedBy !== this.playerId) {
+                    if (this.ui.elements.opponentStatus) this.ui.elements.opponentStatus.textContent = "أجاب بشكل صحيح! 🔥";
+                }
+            }
+
+            if (data.status === 'opponent_left') {
+                this.handleOpponentDisconnected();
+            }
+        });
+    }
+
+    setupOnlineGameBoard() {
+        if (this.ui.elements.opponentBar) this.ui.elements.opponentBar.style.display = 'flex';
+        if (this.ui.elements.opponentScore) this.ui.elements.opponentScore.textContent = '0';
+        if (this.ui.elements.opponentStatus) this.ui.elements.opponentStatus.textContent = 'متصل وجاهز';
+        this.initGameSession();
+    }
+
+    async syncScoreToFirebase() {
+        if (!this.state.isOnlineMode || !this.roomRef) return;
+        const updates = { lastUpdatedBy: this.playerId };
+        if (this.playerRole === 'creator') {
+            updates.creatorScore = this.state.score;
+        } else {
+            updates.joinerScore = this.state.score;
+        }
+        await update(this.roomRef, updates);
+    }
+
+    async handleLeaveRoom() {
+        clearInterval(this.state.timerInterval);
+        this.state.isPlaying = false;
+        if (this.roomRef) {
+            await update(this.roomRef, { status: 'opponent_left' });
+            off(this.roomRef);
+            if (this.playerRole === 'creator') {
+                setTimeout(() => { remove(this.roomRef); }, 1000);
+            }
+        }
+        this.currentRoomCode = null;
+        this.roomRef = null;
         this.showScreen('mode');
     }
 
+    handleOpponentDisconnected() {
+        clearInterval(this.state.timerInterval);
+        this.state.isPlaying = false;
+        if (this.roomRef) off(this.roomRef);
+
+        if (this.ui.elements.gameOverTitle) this.ui.elements.gameOverTitle.textContent = '🏆 فوز تلقائي!';
+        if (this.ui.elements.gameOverMsg) this.ui.elements.gameOverMsg.textContent = 'لقد غادر منافسك الغرفة، تم إعلان فوزك بالتحدي!';
+        if (this.ui.elements.finalScore) this.ui.elements.finalScore.textContent = this.state.score;
+        this.showScreen('over');
+    }
+
     initGameSession() {
-        this.audio.init();
         this.state = {
             ...this.state,
             score: 0, level: 1, stage: 1, currentQuestionIndex: 0,
@@ -244,7 +377,6 @@ class Game {
 
     nextQuestion() {
         if (!this.state.isPlaying) return;
-        
         if (this.state.currentQuestionIndex >= this.state.questionsInStage) { 
             this.completeStage(); 
             return; 
@@ -257,40 +389,18 @@ class Game {
         this.state.maxTime = this.getAdaptiveTime();
         this.state.timeLeft = this.state.maxTime;
         
+        if (this.ui.elements.opponentStatus && this.state.isOnlineMode) {
+            this.ui.elements.opponentStatus.textContent = "يفكر بالسؤال... 🤔";
+        }
+
         this.renderQuestion(q);
         this.startTimer();
         this.updateUI();
-
-        if (this.state.isOnlineMode) {
-            this.simulateOpponentAction();
-        }
-    }
-
-    simulateOpponentAction() {
-        if (this.state.opponentInterval) clearInterval(this.state.opponentInterval);
-        if (this.ui.elements.opponentStatus) this.ui.elements.opponentStatus.textContent = 'يفكر...';
-
-        const processingTime = (Math.random() * 6 + 3) * 1000; // الخصم يجيب بين 3 لـ 9 ثوانٍ
-        
-        this.state.opponentInterval = setTimeout(() => {
-            if (!this.state.isPlaying) return;
-            
-            const isCorrect = Math.random() > 0.25; // نسبة إجابة الخصم صحيحة هي 75%
-            if (isCorrect) {
-                const opponentPoints = Math.floor((100 + Math.random() * 100) * this.state.level);
-                this.state.opponentScore += opponentPoints;
-                if (this.ui.elements.opponentScore) this.ui.elements.opponentScore.textContent = this.state.opponentScore;
-                if (this.ui.elements.opponentStatus) this.ui.elements.opponentStatus.textContent = 'أجاب بشكل صحيح! ✅';
-            } else {
-                if (this.ui.elements.opponentStatus) this.ui.elements.opponentStatus.textContent = 'أخطأ في الإجابة! ❌';
-            }
-        }, processingTime);
     }
 
     renderQuestion(q) {
         if (!q || !this.ui.elements.question || !this.ui.elements.options) return;
-        
-        this.ui.elements.question.textContent = q.question || 'سؤال غير متوفر';
+        this.ui.elements.question.textContent = q.question;
         this.ui.elements.options.innerHTML = '';
         
         const correctIdx = q.answers.indexOf(q.correctAnswer);
@@ -304,14 +414,11 @@ class Game {
         optionsWithIndex.forEach((opt) => {
             const btn = document.createElement('button');
             btn.className = 'option-btn';
-            btn.textContent = opt.text || 'خيار';
+            btn.textContent = opt.text;
             btn.dataset.originalIndex = opt.originalIndex;
             btn.onclick = () => this.handleAnswer(btn, opt.originalIndex === correctIdx);
             this.ui.elements.options.appendChild(btn);
         });
-        if (this.state.lifelines['5050'] && this.ui.elements.btn5050) {
-            this.ui.elements.btn5050.classList.remove('used');
-        }
     }
 
     startTimer() {
@@ -326,9 +433,8 @@ class Game {
         
         this.state.timerInterval = setInterval(() => {
             this.state.timeLeft -= 0.1;
-            if (this.ui.elements.timerText) {
-                this.ui.elements.timerText.textContent = Math.ceil(this.state.timeLeft);
-            }
+            if (this.ui.elements.timerText) this.ui.elements.timerText.textContent = Math.ceil(this.state.timeLeft);
+            
             if (this.ui.elements.timerCircle) {
                 const offset = circleCircumference - (this.state.timeLeft / totalTime) * circleCircumference;
                 this.ui.elements.timerCircle.style.strokeDashoffset = offset;
@@ -337,149 +443,4 @@ class Game {
                 if (this.ui.elements.timerCircle) this.ui.elements.timerCircle.style.stroke = 'var(--danger)';
                 if ([5,4,3].includes(Math.floor(this.state.timeLeft))) this.audio.playWarning();
             } else if (this.state.timeLeft <= 10) {
-                if (this.ui.elements.timerCircle) this.ui.elements.timerCircle.style.stroke = 'var(--warning)';
-            }
-            if (this.state.timeLeft <= 0) {
-                clearInterval(this.state.timerInterval);
-                this.handleTimeout();
-            }
-        }, 100);
-    }
-
-    handleTimeout() {
-        this.audio.playWrong();
-        this.highlightCorrectAnswer();
-        setTimeout(() => { 
-            this.state.currentQuestionIndex++; 
-            this.state.isPlaying = true; 
-            this.nextQuestion(); 
-        }, 2000);
-    }
-
-    handleAnswer(btn, isCorrect) {
-        if (!this.state.isPlaying) return;        
-        this.state.isPlaying = false;
-        clearInterval(this.state.timerInterval);
-        if (this.state.opponentInterval) clearTimeout(this.state.opponentInterval);
-
-        if (isCorrect) {
-            btn.classList.add('correct');
-            this.audio.playCorrect();
-            this.calculateScore();
-            setTimeout(() => { 
-                this.state.currentQuestionIndex++; 
-                this.state.isPlaying = true; 
-                this.nextQuestion(); 
-            }, 1000);
-        } else {
-            btn.classList.add('wrong');
-            this.audio.playWrong();
-            this.highlightCorrectAnswer();
-            setTimeout(() => this.gameOver(), 1500);
-        }
-    }
-
-    highlightCorrectAnswer() {
-        const q = this.state.currentQuestion;
-        if (!q) return;
-        const correctIdx = q.answers.indexOf(q.correctAnswer);
-        const buttons = this.ui.elements.options?.querySelectorAll('.option-btn') || [];
-        buttons.forEach(btn => {
-            if (parseInt(btn.dataset.originalIndex) === correctIdx) btn.classList.add('correct');
-        });
-    }
-
-    calculateScore() {
-        const points = (100 + Math.floor(this.state.timeLeft * 10)) * this.state.level;
-        this.state.score += points;
-        this.state.level++;
-        this.updateUI();
-    }
-
-    useLifeline(type) {
-        if (type === '5050' && this.state.lifelines['5050'] && this.state.isPlaying && this.state.currentQuestion) {
-            const buttons = Array.from(this.ui.elements.options?.querySelectorAll('.option-btn') || []);
-            const q = this.state.currentQuestion;
-            const correctIdx = q.answers.indexOf(q.correctAnswer);
-            const wrongButtons = buttons.filter(b => parseInt(b.dataset.originalIndex) !== correctIdx);
-            wrongButtons.sort(() => Math.random() - 0.5);
-            wrongButtons.slice(0, 2).forEach(b => b.classList.add('hidden'));
-            this.state.lifelines['5050'] = false;
-            if (this.ui.elements.btn5050) this.ui.elements.btn5050.classList.add('used');
-            this.audio.playTick();
-        }
-    }
-
-    completeStage() {
-        clearInterval(this.state.timerInterval);
-        if (this.state.opponentInterval) clearTimeout(this.state.opponentInterval);
-        this.state.isPlaying = false;
-        
-        const stageBonus = 500 * this.state.stage;
-        this.state.score += stageBonus;
-        this.state.stage++;
-        this.state.currentQuestionIndex = 0;
-        this.state.level = this.state.stage * 5;
-        if (this.ui.elements.stageScore) this.ui.elements.stageScore.textContent = `+${stageBonus}`;
-        this.audio.playStageComplete();
-        this.updateUI();
-        this.showScreen('stage');
-    }
-
-    nextStage() {
-        this.state.isPlaying = true;
-        this.showScreen('game');
-        this.nextQuestion();
-    }
-
-    gameOver() {
-        this.state.isPlaying = false;
-        if (this.state.opponentInterval) clearTimeout(this.state.opponentInterval);
-
-        if (this.state.isOnlineMode) {
-            if (this.state.score > this.state.opponentScore) {
-                this.ui.elements.gameOverTitle.textContent = '🎉 انتصرت في التحدي!';
-                this.ui.elements.gameOverMsg.textContent = `لقد تغلبت على منافسك بفارق ${this.state.score - this.state.opponentScore} نقطة!`;
-            } else if (this.state.score < this.state.opponentScore) {
-                this.ui.elements.gameOverTitle.textContent = '📉 هزيمة!';
-                this.ui.elements.gameOverMsg.textContent = `انتصر الخصم عليك بفارق ${this.state.opponentScore - this.state.score} نقطة. حظاً أوفر!`;
-            } else {
-                this.ui.elements.gameOverTitle.textContent = '🤝 تعادل صلب!';
-                this.ui.elements.gameOverMsg.textContent = 'أنت ومنافسك أحرزتما نفس النقاط تماماً!';
-            }
-        } else {
-            this.ui.elements.gameOverTitle.textContent = 'انتهت اللعبة';
-            this.ui.elements.gameOverMsg.textContent = 'حظ أوفر في المرة القادمة!';
-        }
-
-        const currentHigh = parseInt(localStorage.getItem('quizHighScore') || 0);
-        if (this.state.score > currentHigh) {
-            localStorage.setItem('quizHighScore', this.state.score);
-            this.loadHighScore();
-        }
-        if (this.ui.elements.finalScore) this.ui.elements.finalScore.textContent = this.state.score;
-        if (this.ui.elements.finalHighScore) this.ui.elements.finalHighScore.textContent = localStorage.getItem('quizHighScore') || 0;
-        this.showScreen('over');
-    }
-
-    reset() { 
-        if (this.state.opponentInterval) clearInterval(this.state.opponentInterval);
-        this.showScreen('start'); 
-    }
-
-    updateUI() {
-        if (this.ui.elements.score) this.ui.elements.score.textContent = this.state.score;
-        if (this.ui.elements.level) this.ui.elements.level.textContent = this.state.level;
-        if (this.ui.elements.stage) this.ui.elements.stage.textContent = this.state.stage;
-        if (this.ui.elements.qProgress) {
-            this.ui.elements.qProgress.textContent = `${this.state.currentQuestionIndex + 1}/${this.state.questionsInStage}`;
-        }
-        if (this.ui.elements.stageProgress) {
-            this.ui.elements.stageProgress.style.width = `${(this.state.currentQuestionIndex / this.state.questionsInStage) * 100}%`;
-        }
-    }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    window.game = new Game();
-});
+              
