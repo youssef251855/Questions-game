@@ -28,12 +28,37 @@
             <div class="stat-value" id="high-score-display" style="color: var(--warning);">0</div>
         </div>
 
-        <button class="btn" id="start-btn">ابدأ التحدي</button>
+        <button class="btn" id="mode-select-btn">ابدأ التحدي</button>
         <button class="btn btn-secondary" id="mute-btn-start">🔊 الصوت مفعل</button>
+    </div>
+
+    <!-- Mode Selection Screen (جديد) -->
+    <div id="mode-screen" class="screen">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">🎮</div>
+        <h1>اختر وضع اللعب</h1>
+        <p>اختر ما إذا كنت تريد اللعب منفرداً أو تحدي لاعبين آخرين أونلاين.</p>
+        <button class="btn" id="solo-btn">لعب فردي</button>
+        <button class="btn" id="online-btn" style="background: linear-gradient(135deg, var(--secondary), var(--accent)); box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);">تحدي أونلاين 🌐</button>
+        <button class="btn btn-secondary" id="back-to-start-btn">رجوع</button>
+    </div>
+
+    <!-- Matchmaking Screen (جديد) -->
+    <div id="matchmaking-screen" class="screen">
+        <span class="loader" style="border-color: var(--secondary); border-bottom-color: transparent;"></span>
+        <h1>جاري البحث عن منافس...</h1>
+        <p>يتم الآن الاتصال بالسيرفر والبحث عن لاعب مستعد للتحدي.</p>
+        <div id="match-status" style="color: var(--warning); font-weight: bold; margin-bottom: 2rem;">انتظار اللاعب الآخر...</div>
+        <button class="btn btn-secondary" id="cancel-match-btn">إلغاء البحث</button>
     </div>
 
     <!-- Game Screen -->
     <div id="game-screen" class="screen">
+        <!-- شريط الخصم في وضع الأونلاين -->
+        <div id="opponent-bar" class="opponent-bar" style="display: none;">
+            <span class="stat-label">🔴 المنافس: <span id="opponent-score">0</span></span>
+            <span id="opponent-status" style="font-size: 0.8rem; color: var(--text-muted);">يفكر...</span>
+        </div>
+
         <div class="top-bar">
             <div>
                 <div class="stat-label">المستوى <span id="level-display">1</span></div>
@@ -83,8 +108,8 @@
     <!-- Game Over Screen -->
     <div id="game-over-screen" class="screen">
         <div style="font-size: 4rem; margin-bottom: 1rem;">💔</div>
-        <h1>انتهت اللعبة</h1>
-        <p>حظ أوفر في المرة القادمة!</p>
+        <h1 id="game-over-title">انتهت اللعبة</h1>
+        <p id="game-over-msg">حظ أوفر في المرة القادمة!</p>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; width: 100%; margin-bottom: 2rem;">
             <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 15px; text-align: center;">
